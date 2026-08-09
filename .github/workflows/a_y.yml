@@ -33,6 +33,7 @@ jobs:
         run: |
           URL="${{ github.event.client_payload.video_url }}"
           
+          # Fast multi-threaded download via yt-dlp + aria2 for Google Drive & Web links
           yt-dlp \
             --downloader aria2c \
             --downloader-args "aria2c:-x 16 -s 16 -k 1M" \
@@ -40,6 +41,7 @@ jobs:
             --merge-output-format mp4 \
             "$URL" || \
           
+          # Direct curl download fallback for raw MP4 server links
           curl -L -o "downloads/video.mp4" "$URL"
 
       - name: Y U
