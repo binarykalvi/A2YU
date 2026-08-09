@@ -1,0 +1,11 @@
+{
+  "name": "a2y",
+  "version": "1.0.0",
+  "main": "upload.js",
+  "scripts": {
+    "start": "node upload.js"
+  },
+  "dependencies": {
+    "googleapis": "^174.0.0"
+  }
+}
