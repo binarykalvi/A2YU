@@ -1,0 +1,53 @@
+name: A2Y
+
+on:
+  repository_dispatch:
+    types: [A T]
+
+jobs:
+  DAU:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Node Dependencies
+        run: npm install
+
+      - name: Setup Python, ffmpeg & aria2
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg aria2 curl
+          python3 -m pip install --upgrade --force-reinstall "yt-dlp[default]"
+
+      - name: Create Download Directory
+        run: mkdir -p downloads
+
+      - name: A D DL
+        run: |
+          URL="${{ github.event.client_payload.video_url }}"
+          
+          yt-dlp \
+            --downloader aria2c \
+            --downloader-args "aria2c:-x 16 -s 16 -k 1M" \
+            -o "downloads/video.%(ext)s" \
+            --merge-output-format mp4 \
+            "$URL" || \
+          
+          curl -L -o "downloads/video.mp4" "$URL"
+
+      - name: Y U
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          VIDEO_TITLE: ${{ github.event.client_payload.title }}
+          VIDEO_DESCRIPTION: ${{ github.event.client_payload.description }}
+          VIDEO_VISIBILITY: ${{ github.event.client_payload.visibility }}
+        run: node upload.js
