@@ -21,6 +21,12 @@ async function uploadVideo() {
   });
 
   const downloadsDir = path.join(__dirname, 'downloads');
+  
+  if (!fs.existsSync(downloadsDir)) {
+    console.error('Error: downloads/ directory does not exist.');
+    process.exit(1);
+  }
+
   const files = fs.readdirSync(downloadsDir);
   const videoFile = files.find(file => /\.(mp4|mkv|mov|webm|avi)$/i.test(file));
 
