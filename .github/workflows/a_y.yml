@@ -5,46 +5,34 @@ on:
     types: [A T]
 
 jobs:
-  DAU:
+  download-and-upload:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
 
-      - name: Install Node Dependencies
-        run: npm install
+      - name: Install Node.js Dependencies
+        run: npm install googleapis
 
-      - name: Setup Python, ffmpeg & aria2
+      - name: Install yt-dlp
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg aria2 curl
-          python3 -m pip install --upgrade --force-reinstall "yt-dlp[default]"
+          sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+          sudo chmod a+rx /usr/local/bin/yt-dlp
 
-      - name: Create Download Directory
-        run: mkdir -p downloads
-
-      - name: A D DL
+      - name: Download Video from Gofile Link
         run: |
-          URL="${{ github.event.client_payload.video_url }}"
-          
-          # Fast multi-threaded download via yt-dlp + aria2 for Google Drive & Web links
-          yt-dlp \
-            --downloader aria2c \
-            --downloader-args "aria2c:-x 16 -s 16 -k 1M" \
-            -o "downloads/video.%(ext)s" \
-            --merge-output-format mp4 \
-            "$URL" || \
-          
-          # Direct curl download fallback for raw MP4 server links
-          curl -L -o "downloads/video.mp4" "$URL"
+          mkdir -p downloads
+          VIDEO_URL="${{ github.event.client_payload.video_url }}"
+          echo "Downloading from URL: $VIDEO_URL"
+          yt-dlp -o "downloads/%(title)s.%(ext)s" "$VIDEO_URL"
 
-      - name: Y U
+      - name: Execute Node.js Upload Script
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
