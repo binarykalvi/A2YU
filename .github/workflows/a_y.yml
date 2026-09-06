@@ -2,7 +2,7 @@ name: A2Y
 
 on:
   repository_dispatch:
-    types: [A T]
+    types: [A_T]
 
 jobs:
   upload:
@@ -39,7 +39,7 @@ jobs:
               print("Error: No VIDEO_URL provided in payload.", file=sys.stderr)
               sys.exit(1)
 
-          headers = {"Authorization": f"Bearer {token}"} if token else {}
+          download_headers = {"Authorization": f"Bearer {token}"} if token else {}
 
           # Handle Gofile links by querying the API
           if "gofile.io" in url:
@@ -47,7 +47,8 @@ jobs:
               api_url = f"https://api.gofile.io/contents/{content_id}"
               print(f"Fetching metadata from Gofile API for content ID: {content_id}")
               
-              res = requests.get(api_url, headers=headers).json()
+              # Fetch without auth header to avoid error-notPremium on free accounts
+              res = requests.get(api_url).json()
               if res.get("status") != "ok":
                   print(f"Gofile API Error: {res}", file=sys.stderr)
                   sys.exit(1)
@@ -68,7 +69,7 @@ jobs:
           print(f"Downloading from: {download_url}")
           print(f"Saving to: {out_path}")
 
-          with requests.get(download_url, headers=headers, stream=True) as r:
+          with requests.get(download_url, headers=download_headers, stream=True) as r:
               r.raise_for_status()
               with open(out_path, "wb") as f:
                   for chunk in r.iter_content(chunk_size=8192):
