@@ -52,7 +52,7 @@ async function uploadVideo() {
           snippet: {
             title: title,
             description: description,
-            categoryId: '27',
+            categoryId: '27', // Education category
           },
           status: {
             privacyStatus: visibility,
