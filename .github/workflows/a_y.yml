@@ -5,24 +5,34 @@ on:
     types: [A_T]
 
 jobs:
-  upload:
+  download-and-upload:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Node Dependencies
+        run: |
+          npm init -y
+          npm install googleapis
+
+      - name: Set up Python for Download
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install Dependencies
+      - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install google-api-python-client google-auth-oauthlib google-auth-httplib2 requests
+          pip install requests
 
-      - name: Download Video Stream
+      - name: Download Video
         env:
           VIDEO_URL: ${{ github.event.client_payload.video_url }}
           GOFILE_TOKEN: ${{ secrets.GOFILE_API_TOKEN }}
@@ -41,13 +51,12 @@ jobs:
 
           download_headers = {"Authorization": f"Bearer {token}"} if token else {}
 
-          # Handle Gofile links by querying the API
+          # Query Gofile API without auth headers to bypass "error-notPremium" on free accounts
           if "gofile.io" in url:
               content_id = url.rstrip("/").split("/")[-1]
               api_url = f"https://api.gofile.io/contents/{content_id}"
               print(f"Fetching metadata from Gofile API for content ID: {content_id}")
               
-              # Fetch without auth header to avoid error-notPremium on free accounts
               res = requests.get(api_url).json()
               if res.get("status") != "ok":
                   print(f"Gofile API Error: {res}", file=sys.stderr)
@@ -78,54 +87,13 @@ jobs:
           print("Download complete.")
           '
 
-      - name: Upload to YouTube
+      - name: Upload Video to YouTube via Node.js
         env:
-          YOUTUBE_CLIENT_SECRET_JSON: ${{ secrets.YOUTUBE_CLIENT_SECRET_JSON }}
-          YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           VIDEO_TITLE: ${{ github.event.client_payload.title }}
           VIDEO_DESCRIPTION: ${{ github.event.client_payload.description }}
           VIDEO_VISIBILITY: ${{ github.event.client_payload.visibility }}
         run: |
-          python3 -c '
-          import os, glob, json
-          from googleapiclient.discovery import build
-          from googleapiclient.http import MediaFileUpload
-          from google.oauth2.credentials import Credentials
-
-          # Reconstruct OAuth credentials from secrets
-          token_info = json.loads(os.environ["YOUTUBE_TOKEN_JSON"])
-          creds = Credentials.from_authorized_user_info(token_info)
-          youtube = build("youtube", "v3", credentials=creds)
-
-          video_files = glob.glob("downloads/*")
-          if not video_files:
-              raise FileNotFoundError("No video file found in downloads directory.")
-
-          video_path = video_files[0]
-          title = os.environ.get("VIDEO_TITLE", "Automated Upload")
-          description = os.environ.get("VIDEO_DESCRIPTION", "Uploaded via Binary Kalvi Engine")
-          visibility = os.environ.get("VIDEO_VISIBILITY", "unlisted")
-
-          body = {
-              "snippet": {
-                  "title": title,
-                  "description": description,
-                  "categoryId": "27"
-              },
-              "status": {
-                  "privacyStatus": visibility,
-                  "selfDeclaredMadeForKids": False
-              }
-          }
-
-          media = MediaFileUpload(video_path, chunksize=-1, resumable=True)
-          request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
-
-          response = None
-          while response is None:
-              status, response = request.next_chunk()
-              if status:
-                  print(f"Uploaded {int(status.progress() * 100)}%")
-
-          print(f"Upload Successful! Video ID: {response.get(\"id\")}")
-          '
+          node upload.js
